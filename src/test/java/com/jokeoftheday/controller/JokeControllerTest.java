@@ -3,13 +3,13 @@ package com.jokeoftheday.controller;
 import java.time.LocalDate;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.containsString;
 import org.hamcrest.core.Is;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.BDDMockito.willThrow;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -21,6 +21,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -51,10 +52,23 @@ public class JokeControllerTest {
     @Test
     public void test_createValidJokeOfTheDay_Success() throws Exception {
         JokeDTO joke = new JokeDTO(null, "This is how the debug goes", LocalDate.now(), null);
-        willDoNothing().given(service).createJokeOfTheDay(eq(joke));
+        JokeDTO createdJoke = new JokeDTO(UUID.randomUUID(), joke.joke(), joke.date(), null);
+
+        given(service.createJokeOfTheDay(eq(joke))).willReturn(createdJoke);
         mvc.perform(post("/jokeoftheday").content(mapper.writeValueAsBytes(joke))
                 .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isCreated());
+                .andExpect(status().isCreated())
+                .andExpect(header().exists("Location"))
+                .andExpect(header().string("Location", containsString("/"+createdJoke.id())));
+    }
+
+    @Test
+    public void test_createJokeWithId_fail() throws Exception {
+        JokeDTO joke = new JokeDTO(UUID.randomUUID(), "This is how the debug goes", LocalDate.now(), null);
+        
+        mvc.perform(post("/jokeoftheday").content(mapper.writeValueAsBytes(joke))
+                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -116,6 +130,39 @@ public class JokeControllerTest {
         mvc.perform(put("/jokeoftheday/{id}", id.toString())
                 .content(mapper.writeValueAsBytes(joke))
                 .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound());
+    }
+
+     @Test
+    public void test_updateJokeIdMismatch_fail() throws Exception {
+        UUID id = UUID.randomUUID();
+        JokeDTO joke = new JokeDTO(UUID.randomUUID(), "This is how the debug goes",LocalDate.now(), null);
+        willThrow(IllegalArgumentException.class).given(service).updateJokeOftheDay(eq(id), eq(joke));
+        mvc.perform(put("/jokeoftheday/{id}", id.toString())
+                .content(mapper.writeValueAsBytes(joke))
+                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void test_getJokeById_success() throws Exception {
+        UUID id = UUID.randomUUID();
+        JokeDTO jokeDTO = new JokeDTO(id, "Why did the Software Engineer Cross the road? To see if a car accident can be reproduced",LocalDate.now(), null);
+        given(service.getJokeById(eq(id))).willReturn(jokeDTO);
+
+        mvc.perform(get("/jokeoftheday/{id}", id.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id", Is.is(id.toString())))
+                .andExpect(jsonPath("$.joke", Is.is("Why did the Software Engineer Cross the road? To see if a car accident can be reproduced")));
+    }
+
+    @Test
+    public void test_getJokeByNonExistantId_fail() throws Exception {
+        UUID id = UUID.randomUUID();
+    
+        willThrow(EntityNotFoundException.class).given(service).getJokeById(eq(id));
+        
+        mvc.perform(get("/jokeoftheday/{id}", id.toString()))
                 .andExpect(status().isNotFound());
     }
 }

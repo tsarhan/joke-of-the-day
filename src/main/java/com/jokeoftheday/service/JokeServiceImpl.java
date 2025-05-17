@@ -29,13 +29,12 @@ public class JokeServiceImpl implements JokeService {
     }
 
     @Override
-    public void createJokeOfTheDay(JokeDTO jokeDTO) {
+    public JokeDTO createJokeOfTheDay(JokeDTO jokeDTO) {
         Joke joke = objectMapper.convertValue(jokeDTO, Joke.class);
         if (jokeRepository.existsByJoke(joke.getJoke())) {
             throw new EntityExistsException("Joke already exists");
-        } else {
-            jokeRepository.save(joke);
-        }
+        } 
+        return  objectMapper.convertValue(jokeRepository.save(joke), JokeDTO.class);
     }
 
     @Override
@@ -56,6 +55,12 @@ public class JokeServiceImpl implements JokeService {
         existingJoke.setJoke(joke.description());
         existingJoke.setDescription(joke.description());
         jokeRepository.save(existingJoke);
+    }
+
+    @Override
+    public JokeDTO getJokeById(UUID id) {
+        Joke existingJoke = jokeRepository.getReferenceById(id);
+        return objectMapper.convertValue(existingJoke, JokeDTO.class);
     }
 
 }

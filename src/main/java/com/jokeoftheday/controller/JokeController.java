@@ -1,9 +1,11 @@
 package com.jokeoftheday.controller;
 
+import java.net.URI;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.jokeoftheday.model.dto.JokeDTO;
 import com.jokeoftheday.service.JokeService;
@@ -33,14 +36,25 @@ public class JokeController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public void createJokeOfTheDay(@RequestBody  @Validated(OnCreate.class)  JokeDTO joke) {
-        jokeService.createJokeOfTheDay(joke);
+    public ResponseEntity<?> createJokeOfTheDay(@RequestBody  @Validated(OnCreate.class)  JokeDTO joke) {
+        JokeDTO jokeDTO = jokeService.createJokeOfTheDay(joke);
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(jokeDTO.id().toString())
+                .toUri();
+        return ResponseEntity.created(location).body(jokeDTO);
     }
 
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public JokeDTO getJokeOfTheDay() {
         return jokeService.getJokeOfTheDay();
+    }
+
+    @GetMapping("/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    public JokeDTO getJokeById(@PathVariable UUID id) {
+        return jokeService.getJokeById(id);
     }
 
     @PutMapping("/{id}")
